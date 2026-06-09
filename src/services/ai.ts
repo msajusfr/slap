@@ -1,6 +1,7 @@
 import type { GenerateImageInput, GenerateImageResult } from '../types';
 
 const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+const OPENAI_IMAGE_EDIT_URL = 'https://api.openai.com/v1/images/edits';
 
 export async function generateImage(input: GenerateImageInput): Promise<GenerateImageResult> {
   const provider = input.settings.provider;
@@ -45,9 +46,49 @@ async function generateWithOpenAi(input: GenerateImageInput): Promise<GenerateIm
   }
 
   input.onProgress?.(0.15, 'Preparation OpenAI');
-  throw new Error(
-    'Le provider OpenAI est cable cote service mais necessite un relais serveur pour une utilisation production sans exposer la cle.'
-  );
+  const imageBlob = await dataUrlToBlob(input.imageDataUrl);
+  const formData = new FormData();
+  const prompt = buildGenerationPrompt(input);
+
+  formData.append('model', 'gpt-image-1');
+  formData.append('image', imageBlob, 'source.jpg');
+  formData.append('prompt', prompt);
+  formData.append('size', input.settings.mode === 'quality' ? '1536x1024' : '1024x1024');
+  formData.append('quality', input.settings.mode === 'quality' ? 'high' : 'medium');
+  formData.append('output_format', 'jpeg');
+
+  input.onProgress?.(0.35, 'Envoi a OpenAI');
+  const response = await fetch(OPENAI_IMAGE_EDIT_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${input.settings.apiKey.trim()}`
+    },
+    body: formData,
+    signal: input.signal
+  });
+
+  input.onProgress?.(0.72, 'Reception du rendu');
+  const payload = (await response.json().catch(() => null)) as OpenAiImageResponse | null;
+
+  if (!response.ok) {
+    throw new Error(getOpenAiErrorMessage(response.status, payload));
+  }
+
+  const firstImage = payload?.data?.[0];
+  if (!firstImage?.b64_json && !firstImage?.url) {
+    throw new Error('OpenAI n a pas renvoye d image exploitable.');
+  }
+
+  const imageDataUrl = firstImage.b64_json
+    ? `data:image/jpeg;base64,${firstImage.b64_json}`
+    : firstImage.url!;
+
+  input.onProgress?.(1, 'Pret');
+
+  return {
+    imageDataUrl,
+    provider: 'openai'
+  };
 }
 
 async function generateWithFal(input: GenerateImageInput): Promise<GenerateImageResult> {
@@ -83,6 +124,57 @@ async function renderStyledPreview(input: GenerateImageInput): Promise<string> {
   drawSignature(context, canvas.width, canvas.height, input.style.name);
 
   return canvas.toDataURL('image/jpeg', input.settings.mode === 'quality' ? 0.94 : 0.86);
+}
+
+interface OpenAiImageResponse {
+  data?: Array<{
+    b64_json?: string;
+    url?: string;
+  }>;
+  error?: {
+    message?: string;
+    type?: string;
+  };
+}
+
+function buildGenerationPrompt(input: GenerateImageInput) {
+  const fidelity = input.settings.intensity >= 78 ? 'forte' : input.settings.intensity >= 48 ? 'equilibree' : 'subtile';
+  const customPrompt = input.settings.customPrompt.trim();
+
+  return [
+    'Transforme cette photo source en une nouvelle image stylisee.',
+    'Conserve la composition principale, les sujets importants et une ressemblance naturelle.',
+    `Style artistique: ${input.style.name}.`,
+    `Instruction de style: ${input.style.prompt}`,
+    `Intensite stylistique: ${fidelity} (${input.settings.intensity}%).`,
+    customPrompt ? `Direction supplementaire utilisateur: ${customPrompt}` : '',
+    'Rendu final premium, propre, sans texte ajoute, sans watermark, pret au partage mobile.'
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
+async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
+  const response = await fetch(dataUrl);
+  return response.blob();
+}
+
+function getOpenAiErrorMessage(status: number, payload: OpenAiImageResponse | null) {
+  const apiMessage = payload?.error?.message;
+
+  if (apiMessage) {
+    return `OpenAI: ${apiMessage}`;
+  }
+
+  if (status === 401) {
+    return 'Cle OpenAI refusee. Verifiez la cle API et le projet associe.';
+  }
+
+  if (status === 429) {
+    return 'OpenAI limite temporairement les requetes. Reessayez dans un instant.';
+  }
+
+  return `OpenAI a renvoye une erreur HTTP ${status}.`;
 }
 
 function loadImage(dataUrl: string): Promise<HTMLImageElement> {
