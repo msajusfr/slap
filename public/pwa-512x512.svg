@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Slap">
+  <rect width="512" height="512" rx="128" fill="#070b18"/>
+  <path d="M122 312c64 51 192 54 259-5 22-19 18-54-8-69-40-24-72 22-115 11-35-9-39-52-77-52-52 0-89 66-59 115Z" fill="#29d3ff"/>
+  <path d="M154 326c65 22 156 16 216-29" stroke="#a67aff" stroke-width="42" stroke-linecap="round"/>
+  <circle cx="187" cy="192" r="35" fill="#f7f2ff"/>
+  <circle cx="336" cy="187" r="35" fill="#f7f2ff"/>
+</svg>
