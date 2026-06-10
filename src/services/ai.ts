@@ -1,7 +1,7 @@
 import type { GenerateImageInput, GenerateImageResult } from '../types';
 
 const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
-const OPENAI_IMAGE_EDIT_URL = 'https://api.openai.com/v1/images/edits';
+const OPENAI_IMAGE_ENDPOINT = '/api/openai-image';
 
 export async function generateImage(input: GenerateImageInput): Promise<GenerateImageResult> {
   const provider = input.settings.provider;
@@ -41,52 +41,37 @@ async function generateWithMockProvider(input: GenerateImageInput): Promise<Gene
 }
 
 async function generateWithOpenAi(input: GenerateImageInput): Promise<GenerateImageResult> {
-  if (!input.settings.apiKey) {
-    throw new Error('Ajoutez une cle API OpenAI dans les reglages.');
-  }
-
   input.onProgress?.(0.15, 'Preparation OpenAI');
   const imageBlob = await dataUrlToBlob(input.imageDataUrl);
   const formData = new FormData();
   const prompt = buildGenerationPrompt(input);
 
-  formData.append('model', 'gpt-image-1');
   formData.append('image', imageBlob, 'source.jpg');
   formData.append('prompt', prompt);
-  formData.append('size', input.settings.mode === 'quality' ? '1536x1024' : '1024x1024');
-  formData.append('quality', input.settings.mode === 'quality' ? 'high' : 'medium');
-  formData.append('output_format', 'jpeg');
+  formData.append('mode', input.settings.mode);
 
-  input.onProgress?.(0.35, 'Envoi a OpenAI');
-  const response = await fetch(OPENAI_IMAGE_EDIT_URL, {
+  input.onProgress?.(0.35, 'Envoi securise');
+  const response = await fetch(OPENAI_IMAGE_ENDPOINT, {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${input.settings.apiKey.trim()}`
-    },
     body: formData,
     signal: input.signal
   });
 
   input.onProgress?.(0.72, 'Reception du rendu');
-  const payload = (await response.json().catch(() => null)) as OpenAiImageResponse | null;
+  const payload = (await response.json().catch(() => null)) as OpenAiProxyResponse | null;
 
   if (!response.ok) {
-    throw new Error(getOpenAiErrorMessage(response.status, payload));
+    throw new Error(payload?.error ?? `La fonction OpenAI a renvoye une erreur HTTP ${response.status}.`);
   }
 
-  const firstImage = payload?.data?.[0];
-  if (!firstImage?.b64_json && !firstImage?.url) {
-    throw new Error('OpenAI n a pas renvoye d image exploitable.');
+  if (!payload?.imageDataUrl) {
+    throw new Error('La fonction OpenAI n a pas renvoye d image exploitable.');
   }
-
-  const imageDataUrl = firstImage.b64_json
-    ? `data:image/jpeg;base64,${firstImage.b64_json}`
-    : firstImage.url!;
 
   input.onProgress?.(1, 'Pret');
 
   return {
-    imageDataUrl,
+    imageDataUrl: payload.imageDataUrl,
     provider: 'openai'
   };
 }
@@ -126,15 +111,9 @@ async function renderStyledPreview(input: GenerateImageInput): Promise<string> {
   return canvas.toDataURL('image/jpeg', input.settings.mode === 'quality' ? 0.94 : 0.86);
 }
 
-interface OpenAiImageResponse {
-  data?: Array<{
-    b64_json?: string;
-    url?: string;
-  }>;
-  error?: {
-    message?: string;
-    type?: string;
-  };
+interface OpenAiProxyResponse {
+  imageDataUrl?: string;
+  error?: string;
 }
 
 function buildGenerationPrompt(input: GenerateImageInput) {
@@ -157,24 +136,6 @@ function buildGenerationPrompt(input: GenerateImageInput) {
 async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
   const response = await fetch(dataUrl);
   return response.blob();
-}
-
-function getOpenAiErrorMessage(status: number, payload: OpenAiImageResponse | null) {
-  const apiMessage = payload?.error?.message;
-
-  if (apiMessage) {
-    return `OpenAI: ${apiMessage}`;
-  }
-
-  if (status === 401) {
-    return 'Cle OpenAI refusee. Verifiez la cle API et le projet associe.';
-  }
-
-  if (status === 429) {
-    return 'OpenAI limite temporairement les requetes. Reessayez dans un instant.';
-  }
-
-  return `OpenAI a renvoye une erreur HTTP ${status}.`;
 }
 
 function loadImage(dataUrl: string): Promise<HTMLImageElement> {
