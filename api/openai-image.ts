@@ -14,6 +14,7 @@ export async function POST(request: Request) {
     const image = incoming.get('image');
     const prompt = String(incoming.get('prompt') ?? '').trim();
     const mode = incoming.get('mode') === 'quality' ? 'quality' : 'fast';
+    const surfaceOnly = incoming.get('surfaceOnly') === 'true';
 
     if (!(image instanceof Blob)) {
       return jsonError('Image manquante dans la requete.', 400);
@@ -26,7 +27,7 @@ export async function POST(request: Request) {
     const formData = new FormData();
     formData.append('model', 'gpt-image-1');
     formData.append('image', image, 'source.jpg');
-    formData.append('prompt', prompt);
+    formData.append('prompt', surfaceOnly ? buildOpenAiIdentityLockedPrompt(prompt) : prompt);
     formData.append('size', mode === 'quality' ? '1536x1024' : '1024x1024');
     formData.append('quality', mode === 'quality' ? 'high' : 'medium');
     formData.append('output_format', 'jpeg');
@@ -96,6 +97,17 @@ function getOpenAiErrorMessage(status: number, payload: OpenAiImageResponse | nu
   }
 
   return `OpenAI a renvoye une erreur HTTP ${status}.`;
+}
+
+function buildOpenAiIdentityLockedPrompt(prompt: string) {
+  return [
+    'IDENTITY-LOCKED STYLE TRANSFER.',
+    'The person, face geometry, expression, age, body, hair, clothes, pose, and visible identity must remain the same as the input image.',
+    'Do not beautify, recast, replace, age, de-age, reshape, repaint, or redesign the character.',
+    'Only change the visual rendering layer: line work, charcoal/ink/paint texture, color grading, lighting mood, contrast, grain, and atmosphere.',
+    'The final image must still be immediately recognizable as the exact same person and scene.',
+    prompt
+  ].join('\n');
 }
 
 function jsonError(message: string, status: number) {

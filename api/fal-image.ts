@@ -1,4 +1,5 @@
 const FAL_IMAGE_URL = 'https://fal.run/fal-ai/flux-1/dev/image-to-image';
+const FAL_KONTEXT_IMAGE_URL = 'https://fal.run/fal-ai/flux-kontext/dev';
 
 export const maxDuration = 60;
 
@@ -27,16 +28,27 @@ export async function POST(request: Request) {
     }
 
     const imageUrl = await blobToDataUrl(image);
-    const response = await fetch(FAL_IMAGE_URL, {
+    const response = await fetch(surfaceOnly ? FAL_KONTEXT_IMAGE_URL : FAL_IMAGE_URL, {
       method: 'POST',
       headers: {
         Authorization: `Key ${apiKey}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
+      body: JSON.stringify(surfaceOnly ? {
+        image_url: imageUrl,
+        prompt: buildFalKontextPrompt(prompt),
+        num_inference_steps: mode === 'quality' ? 36 : 28,
+        guidance_scale: mode === 'quality' ? 3.2 : 2.8,
+        num_images: 1,
+        enable_safety_checker: true,
+        output_format: 'jpeg',
+        acceleration: mode === 'fast' ? 'regular' : 'none',
+        resolution_mode: 'match_input',
+        sync_mode: true
+      } : {
         image_url: imageUrl,
         prompt,
-        strength: getFalStrength(styleStrength, surfaceOnly),
+        strength: getFalStrength(styleStrength),
         num_inference_steps: mode === 'quality' ? 40 : 28,
         guidance_scale: mode === 'quality' ? 3.8 : 3.2,
         num_images: 1,
@@ -108,12 +120,18 @@ function clampIntensity(value: number) {
   return Math.max(20, Math.min(100, value));
 }
 
-function getFalStrength(styleStrength: number, surfaceOnly: boolean) {
-  if (surfaceOnly) {
-    return Math.max(0.18, Math.min(0.42, styleStrength / 180));
-  }
-
+function getFalStrength(styleStrength: number) {
   return Math.max(0.25, Math.min(0.95, styleStrength / 100));
+}
+
+function buildFalKontextPrompt(prompt: string) {
+  return [
+    'Edit the provided image directly. Keep the same exact person, face, expression, age, hair, clothes, pose, body proportions, camera framing, and background layout.',
+    'Do not beautify, add makeup, replace the person, change facial geometry, redesign clothing, or invent a new character.',
+    'Apply the requested style as a visible surface rendering only. The requested medium must be obvious: strong line work, paper/charcoal/paint texture, contrast, grain, lighting mood, and atmosphere.',
+    'For charcoal or fusain styles, make the result clearly black-and-white charcoal drawing with deep blacks, smudged shading, visible paper grain, and hand-drawn contours while preserving identity.',
+    prompt
+  ].join('\n');
 }
 
 function getFalImageUrl(payload: FalImageResponse | FalErrorResponse | null) {

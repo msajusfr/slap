@@ -210,9 +210,12 @@ function buildSurfaceOnlyPrompt(settings: GenerateImageInput['settings']) {
   }
 
   return [
-    'Mode sujet intact: ne modifie pas le personnage lui-meme.',
-    'Applique le style uniquement comme un traitement de surface: trait, contours, texture, lumiere, couleur, contraste, ambiance et rendu graphique.',
-    'Ne change ni les proportions, ni la forme du visage, ni les yeux, ni le nez, ni la bouche, ni la coupe de cheveux, ni les vetements, ni la pose.'
+    'MODE SUJET INTACT / IDENTITY-LOCKED STYLE TRANSFER.',
+    'Le personnage doit rester exactement le meme: meme geometrie du visage, memes yeux, nez, bouche, expression, age, morphologie, cheveux, vetements et pose.',
+    'Ne remplace pas la personne, ne l embellis pas, ne la maquille pas, ne change pas ses traits et ne redesign pas son corps.',
+    'Applique le style choisi de facon visible mais uniquement comme une couche de rendu: trait, contours, fusain, encre, texture, lumiere, couleur, contraste, grain et ambiance.',
+    'Si le style est fusain, le rendu doit etre clairement un dessin noir et blanc au fusain avec noirs profonds, estompes, grain papier et contours faits main.',
+    'Le resultat doit etre reconnu immediatement comme la meme photo et le meme personnage, seulement rendu dans le style choisi.'
   ].join(' ');
 }
 
