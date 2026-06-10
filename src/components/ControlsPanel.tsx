@@ -90,6 +90,7 @@ export function ControlsPanel({
           label="Fidelite au visage"
           value={settings.faceFidelity}
           onChange={(value) => onSettingsChange({ ...settings, faceFidelity: value })}
+          hint="Niveau de verrouillage des traits du visage."
         />
         <SliderControl
           label="Force du style"
@@ -106,22 +107,39 @@ export function ControlsPanel({
       <div className="grid grid-cols-2 gap-2">
         <PreserveToggle
           label="Sujet intact"
+          hint="Mode conservateur: meme personne, corps, vetements et pose."
           checked={settings.preserve.subject}
-          onChange={(checked) => onSettingsChange({ ...settings, preserve: { ...settings.preserve, subject: checked } })}
+          onChange={(checked) =>
+            onSettingsChange({
+              ...settings,
+              faceFidelity: checked ? Math.max(settings.faceFidelity, 95) : settings.faceFidelity,
+              preserve: {
+                ...settings.preserve,
+                subject: checked,
+                face: checked ? true : settings.preserve.face,
+                clothing: checked ? true : settings.preserve.clothing,
+                pose: checked ? true : settings.preserve.pose
+              }
+            })
+          }
         />
         <PreserveToggle
           label="Conserver le visage"
+          hint="Verrouille seulement l identite et les traits du visage."
           checked={settings.preserve.face}
+          disabled={settings.preserve.subject}
           onChange={(checked) => onSettingsChange({ ...settings, preserve: { ...settings.preserve, face: checked } })}
         />
         <PreserveToggle
           label="Conserver les vetements"
           checked={settings.preserve.clothing}
+          disabled={settings.preserve.subject}
           onChange={(checked) => onSettingsChange({ ...settings, preserve: { ...settings.preserve, clothing: checked } })}
         />
         <PreserveToggle
           label="Conserver la pose"
           checked={settings.preserve.pose}
+          disabled={settings.preserve.subject}
           onChange={(checked) => onSettingsChange({ ...settings, preserve: { ...settings.preserve, pose: checked } })}
         />
         <PreserveToggle
@@ -187,11 +205,13 @@ export function ControlsPanel({
 function SliderControl({
   label,
   value,
-  onChange
+  onChange,
+  hint
 }: {
   label: string;
   value: number;
   onChange: (value: number) => void;
+  hint?: string;
 }) {
   return (
     <label className="block space-y-2">
@@ -207,28 +227,41 @@ function SliderControl({
         onChange={(event) => onChange(Number(event.target.value))}
         className="w-full accent-cyan-300"
       />
+      {hint && <span className="block text-[11px] leading-snug text-slate-500">{hint}</span>}
     </label>
   );
 }
 
 function PreserveToggle({
   label,
+  hint,
   checked,
-  onChange
+  onChange,
+  disabled = false
 }: {
   label: string;
+  hint?: string;
   checked: boolean;
   onChange: (checked: boolean) => void;
+  disabled?: boolean;
 }) {
   return (
-    <label className="flex min-h-11 items-center gap-2 rounded-[8px] border border-white/10 bg-black/20 px-3 py-2 text-xs text-slate-200">
+    <label
+      className={`flex min-h-11 items-start gap-2 rounded-[8px] border border-white/10 bg-black/20 px-3 py-2 text-xs text-slate-200 ${
+        disabled ? 'opacity-60' : ''
+      }`}
+    >
       <input
         type="checkbox"
         checked={checked}
+        disabled={disabled}
         onChange={(event) => onChange(event.target.checked)}
-        className="h-4 w-4 accent-cyan-300"
+        className="mt-0.5 h-4 w-4 accent-cyan-300"
       />
-      {label}
+      <span>
+        <span className="block">{label}</span>
+        {hint && <span className="mt-0.5 block leading-snug text-slate-500">{hint}</span>}
+      </span>
     </label>
   );
 }

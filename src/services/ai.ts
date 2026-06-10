@@ -167,6 +167,7 @@ function buildGenerationPrompt(input: GenerateImageInput) {
       `Force du style: ${input.settings.styleStrength}%.`,
       `Creativite: ${input.settings.creativity}%.`,
       buildSurfaceOnlyPrompt(input.settings),
+      buildFaceFidelityPrompt(input.settings),
       buildPreservationPrompt(input.settings),
       input.variationPrompt ? `Variation rapide demandee: ${input.variationPrompt}` : '',
       'Rendu final premium, propre, sans texte ajoute, sans watermark, pret au partage mobile.'
@@ -183,6 +184,7 @@ function buildGenerationPrompt(input: GenerateImageInput) {
     `Force du style: ${input.settings.styleStrength}%.`,
     `Creativite: ${input.settings.creativity}%.`,
     buildSurfaceOnlyPrompt(input.settings),
+    buildFaceFidelityPrompt(input.settings),
     buildPreservationPrompt(input.settings),
     customPrompt ? `Direction supplementaire utilisateur: ${customPrompt}` : '',
     input.variationPrompt ? `Variation rapide demandee: ${input.variationPrompt}` : '',
@@ -194,14 +196,34 @@ function buildGenerationPrompt(input: GenerateImageInput) {
 
 function buildPreservationPrompt(settings: GenerateImageInput['settings']) {
   const rules = [
-    settings.preserve.subject ? 'ne pas modifier le personnage, sa morphologie, son age, son expression, ses traits distinctifs ni son identite' : '',
-    settings.preserve.face ? 'conserver le visage et l identite du sujet' : '',
+    settings.preserve.subject ? 'verrouiller le sujet complet, sa morphologie, son age, son expression, ses traits distinctifs et son identite' : '',
+    settings.preserve.face ? 'conserver le visage et l identite selon le niveau de fidelite demande' : '',
     settings.preserve.clothing ? 'conserver les vetements principaux' : '',
     settings.preserve.pose ? 'conserver la pose et le cadrage corporel' : '',
     settings.preserve.background ? 'conserver l arriere-plan autant que possible' : ''
   ].filter(Boolean);
 
   return rules.length > 0 ? `Contraintes de preservation: ${rules.join(', ')}.` : '';
+}
+
+function buildFaceFidelityPrompt(settings: GenerateImageInput['settings']) {
+  if (!settings.preserve.face && !settings.preserve.subject) {
+    return '';
+  }
+
+  if (settings.faceFidelity >= 92) {
+    return [
+      'Fidelite visage tres stricte:',
+      'garde exactement la geometrie du visage, distance entre les yeux, forme du nez, bouche, machoire, expression, age apparent, peau, cheveux et signes distinctifs.',
+      'Aucun embellissement, maquillage, lissage excessif, rajeunissement ou changement de personne.'
+    ].join(' ');
+  }
+
+  if (settings.faceFidelity >= 65) {
+    return 'Fidelite visage forte: preserve clairement l identite, les proportions du visage, l expression et les traits distinctifs tout en acceptant le rendu graphique du style.';
+  }
+
+  return 'Fidelite visage souple: conserve une ressemblance generale du visage sans bloquer toutes les interpretations artistiques.';
 }
 
 function buildSurfaceOnlyPrompt(settings: GenerateImageInput['settings']) {
