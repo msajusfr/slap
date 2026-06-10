@@ -15,6 +15,7 @@ export async function POST(request: Request) {
     const prompt = String(incoming.get('prompt') ?? '').trim();
     const mode = incoming.get('mode') === 'quality' ? 'quality' : 'fast';
     const intensity = clampIntensity(Number(incoming.get('intensity') ?? 72));
+    const styleStrength = clampIntensity(Number(incoming.get('styleStrength') ?? intensity));
 
     if (!(image instanceof Blob)) {
       return jsonError('Image manquante dans la requete.', 400);
@@ -34,7 +35,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         image_url: imageUrl,
         prompt,
-        strength: Math.max(0.45, Math.min(0.95, intensity / 100)),
+        strength: Math.max(0.25, Math.min(0.95, styleStrength / 100)),
         num_inference_steps: mode === 'quality' ? 40 : 28,
         guidance_scale: mode === 'quality' ? 3.8 : 3.2,
         num_images: 1,

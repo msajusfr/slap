@@ -87,6 +87,7 @@ async function generateWithFal(input: GenerateImageInput): Promise<GenerateImage
   formData.append('prompt', prompt);
   formData.append('mode', input.settings.mode);
   formData.append('intensity', String(input.settings.intensity));
+  formData.append('styleStrength', String(input.settings.styleStrength));
 
   input.onProgress?.(0.35, 'Envoi securise');
   const response = await fetch(FAL_IMAGE_ENDPOINT, {
@@ -147,7 +148,7 @@ function buildGenerationPrompt(input: GenerateImageInput) {
   const fidelity = input.settings.intensity >= 78 ? 'forte' : input.settings.intensity >= 48 ? 'equilibree' : 'subtile';
   const customPrompt = input.settings.customPrompt.trim();
 
-  if (input.style.id === 'prompt-only') {
+  if (input.style.mode === 'prompt-only') {
     if (!customPrompt) {
       throw new Error('Ajoutez un prompt avance pour utiliser Prompt only.');
     }
@@ -157,8 +158,13 @@ function buildGenerationPrompt(input: GenerateImageInput) {
       'Preserve les sujets et la composition qui ne sont pas explicitement modifies.',
       `Demande utilisateur: ${customPrompt}`,
       `Intensite de modification: ${fidelity} (${input.settings.intensity}%).`,
+      `Fidelite au visage: ${input.settings.faceFidelity}%.`,
+      `Force du style: ${input.settings.styleStrength}%.`,
+      `Creativite: ${input.settings.creativity}%.`,
+      buildPreservationPrompt(input.settings),
+      input.variationPrompt ? `Variation rapide demandee: ${input.variationPrompt}` : '',
       'Rendu final premium, propre, sans texte ajoute, sans watermark, pret au partage mobile.'
-    ].join('\n');
+    ].filter(Boolean).join('\n');
   }
 
   return [
@@ -167,11 +173,27 @@ function buildGenerationPrompt(input: GenerateImageInput) {
     `Style artistique: ${input.style.name}.`,
     `Instruction de style: ${input.style.prompt}`,
     `Intensite stylistique: ${fidelity} (${input.settings.intensity}%).`,
+    `Fidelite au visage: ${input.settings.faceFidelity}%.`,
+    `Force du style: ${input.settings.styleStrength}%.`,
+    `Creativite: ${input.settings.creativity}%.`,
+    buildPreservationPrompt(input.settings),
     customPrompt ? `Direction supplementaire utilisateur: ${customPrompt}` : '',
+    input.variationPrompt ? `Variation rapide demandee: ${input.variationPrompt}` : '',
     'Rendu final premium, propre, sans texte ajoute, sans watermark, pret au partage mobile.'
   ]
     .filter(Boolean)
     .join('\n');
+}
+
+function buildPreservationPrompt(settings: GenerateImageInput['settings']) {
+  const rules = [
+    settings.preserve.face ? 'conserver le visage et l identite du sujet' : '',
+    settings.preserve.clothing ? 'conserver les vetements principaux' : '',
+    settings.preserve.pose ? 'conserver la pose et le cadrage corporel' : '',
+    settings.preserve.background ? 'conserver l arriere-plan autant que possible' : ''
+  ].filter(Boolean);
+
+  return rules.length > 0 ? `Contraintes de preservation: ${rules.join(', ')}.` : '';
 }
 
 async function dataUrlToBlob(dataUrl: string): Promise<Blob> {

@@ -5,27 +5,50 @@ import { ExportActions } from '../components/ExportActions';
 import { HistoryStrip } from '../components/HistoryStrip';
 import { PhotoDropzone } from '../components/PhotoDropzone';
 import { StyleRail } from '../components/StyleRail';
-import { artStyles } from '../data/styles';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { generateImage } from '../services/ai';
 import { compressImage, copyImageToClipboard, downloadDataUrl, shareImage } from '../services/image';
-import type { Creation, GenerationSettings, StyleCategory } from '../types';
+import {
+  addRecentStyle,
+  filterStyles,
+  getStyleById,
+  getStyles,
+  recommendStyles,
+  toggleFavoriteStyle
+} from '../services/styleService';
+import type { Creation, GenerationSettings, QuickVariation, StyleCategory, StyleRecommendation } from '../types';
 
 const defaultSettings: GenerationSettings = {
   provider: 'mock',
-  apiKey: '',
   intensity: 72,
+  faceFidelity: 82,
+  styleStrength: 72,
+  creativity: 42,
   mode: 'fast',
-  customPrompt: ''
+  customPrompt: '',
+  preserve: {
+    face: true,
+    clothing: true,
+    pose: true,
+    background: false
+  }
 };
+
+const styles = getStyles();
 
 export function Home() {
   const [sourceUrl, setSourceUrl] = useLocalStorage<string>('slap.source', '');
   const [resultUrl, setResultUrl] = useLocalStorage<string>('slap.result', '');
-  const [settings, setSettings] = useLocalStorage<GenerationSettings>('slap.settings', defaultSettings);
+  const [storedSettings, setStoredSettings] = useLocalStorage<Partial<GenerationSettings>>('slap.settings', defaultSettings);
   const [creations, setCreations] = useLocalStorage<Creation[]>('slap.creations', []);
-  const [selectedStyleId, setSelectedStyleId] = useLocalStorage<string>('slap.style', artStyles[0].id);
+  const [selectedStyleId, setSelectedStyleId] = useLocalStorage<string>('slap.style', styles[0].id);
+  const [favoriteStyleIds, setFavoriteStyleIds] = useLocalStorage<string[]>('slap.styleFavorites', []);
+  const [recentStyleIds, setRecentStyleIds] = useLocalStorage<string[]>('slap.styleRecent', []);
   const [selectedCategory, setSelectedCategory] = useState<StyleCategory | 'Tous'>('Tous');
+  const [styleQuery, setStyleQuery] = useState('');
+  const [recommendations, setRecommendations] = useState<StyleRecommendation[]>([]);
+  const [isRecommending, setIsRecommending] = useState(false);
+  const [hasGenerated, setHasGenerated] = useState(false);
   const [compareValue, setCompareValue] = useState(55);
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -33,9 +56,11 @@ export function Home() {
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
 
-  const selectedStyle = useMemo(
-    () => artStyles.find((style) => style.id === selectedStyleId) ?? artStyles[0],
-    [selectedStyleId]
+  const settings = useMemo(() => normalizeSettings(storedSettings), [storedSettings]);
+  const selectedStyle = useMemo(() => getStyleById(selectedStyleId), [selectedStyleId]);
+  const visibleStyles = useMemo(
+    () => filterStyles({ category: selectedCategory, query: styleQuery, favoriteStyleIds, recentStyleIds }),
+    [favoriteStyleIds, recentStyleIds, selectedCategory, styleQuery]
   );
 
   async function handleFile(file: File) {
@@ -54,7 +79,11 @@ export function Home() {
     }
   }
 
-  async function runGeneration() {
+  function updateSettings(nextSettings: GenerationSettings) {
+    setStoredSettings(nextSettings);
+  }
+
+  async function runGeneration(variationPrompt?: string) {
     if (!sourceUrl || isGenerating) {
       return;
     }
@@ -71,6 +100,7 @@ export function Home() {
         imageDataUrl: inputImageUrl,
         style: selectedStyle,
         settings,
+        variationPrompt,
         signal: controller.signal,
         onProgress: (value, message) => {
           setProgress(value);
@@ -81,6 +111,8 @@ export function Home() {
       setSourceUrl(response.imageDataUrl);
       setResultUrl('');
       setCompareValue(100);
+      setHasGenerated(true);
+      setRecentStyleIds((currentStyleIds) => addRecentStyle(currentStyleIds, selectedStyle.id));
 
       const creation: Creation = {
         id: crypto.randomUUID(),
@@ -106,6 +138,7 @@ export function Home() {
     setSourceUrl(creation.resultUrl);
     setResultUrl('');
     setSelectedStyleId(creation.styleId);
+    setHasGenerated(true);
     setCompareValue(100);
   }
 
@@ -115,6 +148,30 @@ export function Home() {
         creation.id === id ? { ...creation, favorite: !creation.favorite } : creation
       )
     );
+  }
+
+  async function handleRecommendations() {
+    if (!sourceUrl || isRecommending) {
+      return;
+    }
+
+    try {
+      setIsRecommending(true);
+      setError('');
+      const nextRecommendations = await recommendStyles(sourceUrl);
+      setRecommendations(nextRecommendations);
+      setToast('Styles recommandes prets');
+      window.setTimeout(() => setToast(''), 1600);
+    } catch (recommendationError) {
+      setError(recommendationError instanceof Error ? recommendationError.message : 'Recommandations indisponibles.');
+    } finally {
+      setIsRecommending(false);
+    }
+  }
+
+  function selectStyle(styleId: string) {
+    setSelectedStyleId(styleId);
+    setRecentStyleIds((currentStyleIds) => addRecentStyle(currentStyleIds, styleId));
   }
 
   async function handleShare() {
@@ -180,11 +237,21 @@ export function Home() {
             />
 
             <StyleRail
-              styles={artStyles}
+              styles={visibleStyles}
+              allStyles={styles}
               selectedStyleId={selectedStyle.id}
               selectedCategory={selectedCategory}
+              query={styleQuery}
+              favoriteStyleIds={favoriteStyleIds}
+              recentStyleIds={recentStyleIds}
+              recommendations={recommendations}
+              isRecommending={isRecommending}
+              canRecommend={Boolean(sourceUrl)}
+              onQueryChange={setStyleQuery}
               onSelectCategory={setSelectedCategory}
-              onSelectStyle={(style) => setSelectedStyleId(style.id)}
+              onSelectStyle={(style) => selectStyle(style.id)}
+              onToggleFavorite={(styleId) => setFavoriteStyleIds((currentStyleIds) => toggleFavoriteStyle(currentStyleIds, styleId))}
+              onRecommend={handleRecommendations}
             />
           </div>
 
@@ -192,11 +259,13 @@ export function Home() {
             <ControlsPanel
               settings={settings}
               canGenerate={Boolean(sourceUrl)}
+              canUseVariations={hasGenerated && Boolean(sourceUrl)}
               isGenerating={isGenerating}
               error={error}
-              onGenerate={runGeneration}
-              onRetry={runGeneration}
-              onSettingsChange={setSettings}
+              onGenerate={() => runGeneration()}
+              onRetry={() => runGeneration()}
+              onVariation={(variation: QuickVariation) => runGeneration(variation.prompt)}
+              onSettingsChange={updateSettings}
             />
             <ExportActions
               hasResult={Boolean(resultUrl || sourceUrl)}
@@ -222,7 +291,7 @@ export function Home() {
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-white/10 bg-slate-950/80 px-4 py-3 backdrop-blur-2xl lg:hidden">
         <button
           type="button"
-          onClick={runGeneration}
+          onClick={() => runGeneration()}
           disabled={!sourceUrl || isGenerating}
           className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-white font-bold text-slate-950 transition disabled:bg-white/20 disabled:text-white/40"
         >
@@ -239,4 +308,15 @@ export function Home() {
       )}
     </main>
   );
+}
+
+function normalizeSettings(settings: Partial<GenerationSettings>): GenerationSettings {
+  return {
+    ...defaultSettings,
+    ...settings,
+    preserve: {
+      ...defaultSettings.preserve,
+      ...settings.preserve
+    }
+  };
 }
