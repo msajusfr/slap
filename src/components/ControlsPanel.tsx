@@ -79,29 +79,15 @@ export function ControlsPanel({
       </div>
 
       {settings.provider !== 'mock' && (
-        settings.provider === 'openai' ? (
-          <div className="rounded-[8px] border border-cyan-200/20 bg-cyan-200/8 p-3 text-xs text-cyan-50">
-            <span className="flex items-center gap-2 font-medium">
-              <KeyRound className="h-4 w-4 text-cyan-300" aria-hidden="true" />
-              Cle OpenAI protegee par Vercel
-            </span>
-            <p className="mt-1 text-slate-300">Configurez OPENAI_API_KEY dans les variables d environnement du projet.</p>
-          </div>
-        ) : (
-          <label className="block space-y-2">
-            <span className="flex items-center gap-2 text-xs font-medium text-slate-300">
-              <KeyRound className="h-4 w-4 text-violet-300" aria-hidden="true" />
-              Cle API locale
-            </span>
-            <input
-              type="password"
-              value={settings.apiKey}
-              onChange={(event) => onSettingsChange({ ...settings, apiKey: event.target.value })}
-              placeholder="fal-key"
-              className="w-full rounded-[8px] border border-white/10 bg-black/25 px-3 py-2 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-cyan-200/60"
-            />
-          </label>
-        )
+        <div className="rounded-[8px] border border-cyan-200/20 bg-cyan-200/8 p-3 text-xs text-cyan-50">
+          <span className="flex items-center gap-2 font-medium">
+            <KeyRound className="h-4 w-4 text-cyan-300" aria-hidden="true" />
+            Cle {settings.provider === 'openai' ? 'OpenAI' : 'fal.ai'} protegee par Vercel
+          </span>
+          <p className="mt-1 text-slate-300">
+            Configurez {settings.provider === 'openai' ? 'OPENAI_API_KEY' : 'FAL_KEY'} dans les variables d environnement du projet.
+          </p>
+        </div>
       )}
 
       <label className="block space-y-2">

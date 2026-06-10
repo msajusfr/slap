@@ -2,6 +2,7 @@ import type { GenerateImageInput, GenerateImageResult } from '../types';
 
 const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 const OPENAI_IMAGE_ENDPOINT = '/api/openai-image';
+const FAL_IMAGE_ENDPOINT = '/api/fal-image';
 
 export async function generateImage(input: GenerateImageInput): Promise<GenerateImageResult> {
   const provider = input.settings.provider;
@@ -58,7 +59,7 @@ async function generateWithOpenAi(input: GenerateImageInput): Promise<GenerateIm
   });
 
   input.onProgress?.(0.72, 'Reception du rendu');
-  const payload = (await response.json().catch(() => null)) as OpenAiProxyResponse | null;
+  const payload = (await response.json().catch(() => null)) as ImageProxyResponse | null;
 
   if (!response.ok) {
     throw new Error(payload?.error ?? `La fonction OpenAI a renvoye une erreur HTTP ${response.status}.`);
@@ -77,14 +78,40 @@ async function generateWithOpenAi(input: GenerateImageInput): Promise<GenerateIm
 }
 
 async function generateWithFal(input: GenerateImageInput): Promise<GenerateImageResult> {
-  if (!input.settings.apiKey) {
-    throw new Error('Ajoutez une cle API fal.ai dans les reglages.');
+  input.onProgress?.(0.15, 'Preparation fal.ai');
+  const imageBlob = await dataUrlToBlob(input.imageDataUrl);
+  const formData = new FormData();
+  const prompt = buildGenerationPrompt(input);
+
+  formData.append('image', imageBlob, 'source.jpg');
+  formData.append('prompt', prompt);
+  formData.append('mode', input.settings.mode);
+  formData.append('intensity', String(input.settings.intensity));
+
+  input.onProgress?.(0.35, 'Envoi securise');
+  const response = await fetch(FAL_IMAGE_ENDPOINT, {
+    method: 'POST',
+    body: formData,
+    signal: input.signal
+  });
+
+  input.onProgress?.(0.72, 'Reception du rendu');
+  const payload = (await response.json().catch(() => null)) as ImageProxyResponse | null;
+
+  if (!response.ok) {
+    throw new Error(payload?.error ?? `La fonction fal.ai a renvoye une erreur HTTP ${response.status}.`);
   }
 
-  input.onProgress?.(0.15, 'Preparation fal.ai');
-  throw new Error(
-    'Le provider fal.ai est pret dans l architecture, mais doit etre branche a un endpoint modele autorise par votre cle.'
-  );
+  if (!payload?.imageDataUrl) {
+    throw new Error('La fonction fal.ai n a pas renvoye d image exploitable.');
+  }
+
+  input.onProgress?.(1, 'Pret');
+
+  return {
+    imageDataUrl: payload.imageDataUrl,
+    provider: 'fal'
+  };
 }
 
 async function renderStyledPreview(input: GenerateImageInput): Promise<string> {
@@ -111,7 +138,7 @@ async function renderStyledPreview(input: GenerateImageInput): Promise<string> {
   return canvas.toDataURL('image/jpeg', input.settings.mode === 'quality' ? 0.94 : 0.86);
 }
 
-interface OpenAiProxyResponse {
+interface ImageProxyResponse {
   imageDataUrl?: string;
   error?: string;
 }
