@@ -52,6 +52,19 @@ export interface Creation {
   favorite: boolean;
 }
 
+export interface SourcePhoto {
+  id: string;
+  dataUrl: string;
+  createdAt: number;
+  label: string;
+}
+
+export interface CropState {
+  zoom: number;
+  centerX: number;
+  centerY: number;
+}
+
 export interface GenerateImageInput {
   imageDataUrl: string;
   style: ArtStyle;

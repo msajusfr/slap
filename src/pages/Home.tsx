@@ -4,10 +4,11 @@ import { ControlsPanel } from '../components/ControlsPanel';
 import { ExportActions } from '../components/ExportActions';
 import { HistoryStrip } from '../components/HistoryStrip';
 import { PhotoDropzone } from '../components/PhotoDropzone';
+import { SourceLibrary } from '../components/SourceLibrary';
 import { StyleRail } from '../components/StyleRail';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { generateImage } from '../services/ai';
-import { compressImage, copyImageToClipboard, downloadDataUrl, shareImage } from '../services/image';
+import { compressImage, copyImageToClipboard, cropImageDataUrl, downloadDataUrl, shareImage } from '../services/image';
 import {
   addRecentStyle,
   filterStyles,
@@ -16,7 +17,7 @@ import {
   recommendStyles,
   toggleFavoriteStyle
 } from '../services/styleService';
-import type { Creation, GenerationSettings, QuickVariation, StyleCategory, StyleRecommendation } from '../types';
+import type { Creation, CropState, GenerationSettings, QuickVariation, SourcePhoto, StyleCategory, StyleRecommendation } from '../types';
 
 const defaultSettings: GenerationSettings = {
   provider: 'mock',
@@ -35,10 +36,18 @@ const defaultSettings: GenerationSettings = {
 };
 
 const styles = getStyles();
+const defaultCrop: CropState = {
+  zoom: 1,
+  centerX: 0.5,
+  centerY: 0.5
+};
 
 export function Home() {
   const [sourceUrl, setSourceUrl] = useLocalStorage<string>('slap.source', '');
   const [resultUrl, setResultUrl] = useLocalStorage<string>('slap.result', '');
+  const [sourcePhotos, setSourcePhotos] = useLocalStorage<SourcePhoto[]>('slap.sourcePhotos', []);
+  const [activeSourceId, setActiveSourceId] = useLocalStorage<string>('slap.activeSourceId', '');
+  const [crop, setCrop] = useLocalStorage<CropState>('slap.crop', defaultCrop);
   const [storedSettings, setStoredSettings] = useLocalStorage<Partial<GenerationSettings>>('slap.settings', defaultSettings);
   const [creations, setCreations] = useLocalStorage<Creation[]>('slap.creations', []);
   const [selectedStyleId, setSelectedStyleId] = useLocalStorage<string>('slap.style', styles[0].id);
@@ -49,7 +58,6 @@ export function Home() {
   const [recommendations, setRecommendations] = useState<StyleRecommendation[]>([]);
   const [isRecommending, setIsRecommending] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(false);
-  const [compareValue, setCompareValue] = useState(55);
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState('');
@@ -68,9 +76,18 @@ export function Home() {
       setError('');
       setToast('Compression image');
       const compressed = await compressImage(file);
+      const sourcePhoto: SourcePhoto = {
+        id: crypto.randomUUID(),
+        dataUrl: compressed,
+        createdAt: Date.now(),
+        label: file.name || 'Photo source'
+      };
+      setSourcePhotos((currentSources) => [sourcePhoto, ...currentSources].slice(0, 24));
+      setActiveSourceId(sourcePhoto.id);
       setSourceUrl(compressed);
       setResultUrl('');
-      setCompareValue(55);
+      setHasGenerated(false);
+      setCrop(defaultCrop);
       setToast('Photo prete');
       window.setTimeout(() => setToast(''), 1500);
     } catch (importError) {
@@ -95,7 +112,7 @@ export function Home() {
     setProgressLabel('Demarrage');
 
     try {
-      const inputImageUrl = sourceUrl;
+      const inputImageUrl = await cropImageDataUrl(sourceUrl, crop);
       const response = await generateImage({
         imageDataUrl: inputImageUrl,
         style: selectedStyle,
@@ -109,8 +126,9 @@ export function Home() {
       });
 
       setSourceUrl(response.imageDataUrl);
+      setActiveSourceId('');
       setResultUrl('');
-      setCompareValue(100);
+      setCrop(defaultCrop);
       setHasGenerated(true);
       setRecentStyleIds((currentStyleIds) => addRecentStyle(currentStyleIds, selectedStyle.id));
 
@@ -136,10 +154,35 @@ export function Home() {
 
   function selectCreation(creation: Creation) {
     setSourceUrl(creation.resultUrl);
+    setActiveSourceId('');
     setResultUrl('');
     setSelectedStyleId(creation.styleId);
     setHasGenerated(true);
-    setCompareValue(100);
+  }
+
+  function selectSource(source: SourcePhoto) {
+    setSourceUrl(source.dataUrl);
+    setActiveSourceId(source.id);
+    setResultUrl('');
+    setHasGenerated(false);
+    setCrop(defaultCrop);
+  }
+
+  function deleteSource(sourceId: string) {
+    setSourcePhotos((currentSources) => currentSources.filter((source) => source.id !== sourceId));
+
+    if (activeSourceId === sourceId) {
+      const nextSource = sourcePhotos.find((source) => source.id !== sourceId);
+      if (nextSource) {
+        selectSource(nextSource);
+      } else {
+        setActiveSourceId('');
+        setSourceUrl('');
+        setResultUrl('');
+        setHasGenerated(false);
+        setCrop(defaultCrop);
+      }
+    }
   }
 
   function toggleFavorite(id: string) {
@@ -227,13 +270,20 @@ export function Home() {
           <div className="min-w-0 space-y-5">
             <PhotoDropzone
               imageUrl={sourceUrl}
-              resultUrl={resultUrl}
-              compareValue={compareValue}
+              crop={crop}
               isGenerating={isGenerating}
               progress={progress}
               progressLabel={progressLabel}
               onFile={handleFile}
-              onCompareChange={setCompareValue}
+              onCropChange={setCrop}
+              onResetCrop={() => setCrop(defaultCrop)}
+            />
+
+            <SourceLibrary
+              sources={sourcePhotos}
+              activeSourceId={activeSourceId}
+              onSelect={selectSource}
+              onDelete={deleteSource}
             />
 
             <StyleRail

@@ -45,6 +45,44 @@ export async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
   return response.blob();
 }
 
+export interface ImageCropState {
+  zoom: number;
+  centerX: number;
+  centerY: number;
+}
+
+export function cropImageDataUrl(dataUrl: string, crop: ImageCropState, outputSize = 1400): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => {
+      const safeZoom = Math.max(1, Math.min(4, crop.zoom));
+      const sourceSize = Math.min(image.width, image.height) / safeZoom;
+      const centerX = image.width * clamp(crop.centerX, 0, 1);
+      const centerY = image.height * clamp(crop.centerY, 0, 1);
+      const sourceX = clamp(centerX - sourceSize / 2, 0, image.width - sourceSize);
+      const sourceY = clamp(centerY - sourceSize / 2, 0, image.height - sourceSize);
+      const canvas = document.createElement('canvas');
+      canvas.width = outputSize;
+      canvas.height = outputSize;
+      const context = canvas.getContext('2d');
+
+      if (!context) {
+        reject(new Error('Canvas indisponible sur ce navigateur.'));
+        return;
+      }
+
+      context.drawImage(image, sourceX, sourceY, sourceSize, sourceSize, 0, 0, outputSize, outputSize);
+      resolve(canvas.toDataURL('image/jpeg', 0.9));
+    };
+    image.onerror = () => reject(new Error('Image invalide.'));
+    image.src = dataUrl;
+  });
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
+}
+
 export function downloadDataUrl(dataUrl: string, filename: string) {
   const anchor = document.createElement('a');
   anchor.href = dataUrl;

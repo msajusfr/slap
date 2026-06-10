@@ -9,6 +9,8 @@ export type {
   ImageProfile,
   PreservationSettings,
   QuickVariation,
+  CropState,
+  SourcePhoto,
   StyleCategory,
   StyleMode,
   StyleRecommendation

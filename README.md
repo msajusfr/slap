@@ -10,6 +10,8 @@ Slap est une PWA React + TypeScript pour transformer une photo en image stylisee
 - Recherche, favoris et styles recemment utilises
 - Recommandations de styles basees sur une analyse locale simple de l image
 - Edition incrementale: chaque generation devient la nouvelle image de travail
+- Bibliotheque locale de photos sources pour relancer plusieurs essais depuis une base conservee
+- Cadrage tactile de la source avec drag, zoom et pinch avant generation
 - Mode `Prompt Only` pour modifier l image uniquement avec le prompt avance
 - Controles avances: intensite, fidelite au visage, force du style, creativite
 - Options de preservation: visage, vetements, pose, arriere-plan
@@ -74,8 +76,10 @@ Configuration Vercel:
 ## Flux d edition incrementale
 
 1. Importer une image.
-2. Choisir un provider.
-3. Choisir un style ou `Prompt Only`.
-4. Generer.
-5. Le resultat remplace l image de travail.
-6. Relancer une generation ou une variation rapide pour affiner l image.
+2. Ajuster le cadrage avec le doigt, la souris ou le pinch zoom.
+3. Choisir un provider.
+4. Choisir un style ou `Prompt Only`.
+5. Generer uniquement depuis l image ainsi cadree.
+6. Le resultat remplace l image de travail.
+7. Revenir a une photo source conservee pour lancer une autre piste.
+8. Relancer une generation ou une variation rapide pour affiner l image.
