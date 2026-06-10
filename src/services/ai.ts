@@ -155,6 +155,9 @@ function buildGenerationPrompt(input: GenerateImageInput) {
 
     return [
       'Modifie cette image source en suivant uniquement la demande utilisateur.',
+      'N applique aucun style artistique implicite, preset, filtre, rendu BD, manga, illustration ou cinema non demande explicitement.',
+      'Si l image source porte deja un style visuel precedent, considere-le comme un artefact a neutraliser sauf si la demande utilisateur le mentionne.',
+      'Utilise l image source comme reference de contenu, de sujet et de composition, pas comme instruction de style.',
       'Preserve les sujets et la composition qui ne sont pas explicitement modifies.',
       `Demande utilisateur: ${customPrompt}`,
       `Intensite de modification: ${fidelity} (${input.settings.intensity}%).`,

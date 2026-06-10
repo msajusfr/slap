@@ -88,6 +88,7 @@ export function Home() {
       setResultUrl('');
       setHasGenerated(false);
       setCrop(defaultCrop);
+      resetPromptForSourceChange();
       setToast('Photo prete');
       window.setTimeout(() => setToast(''), 1500);
     } catch (importError) {
@@ -98,6 +99,13 @@ export function Home() {
 
   function updateSettings(nextSettings: GenerationSettings) {
     setStoredSettings(nextSettings);
+  }
+
+  function resetPromptForSourceChange() {
+    setStoredSettings((currentSettings) => ({
+      ...normalizeSettings(currentSettings),
+      customPrompt: ''
+    }));
   }
 
   async function runGeneration(variationPrompt?: string) {
@@ -166,6 +174,7 @@ export function Home() {
     setResultUrl('');
     setHasGenerated(false);
     setCrop(defaultCrop);
+    resetPromptForSourceChange();
   }
 
   function deleteSource(sourceId: string) {
@@ -181,6 +190,7 @@ export function Home() {
         setResultUrl('');
         setHasGenerated(false);
         setCrop(defaultCrop);
+        resetPromptForSourceChange();
       }
     }
   }
