@@ -1,6 +1,7 @@
 import type { ArtStyle, StyleCategory } from '../types';
 
 export const categories: StyleCategory[] = [
+  'Prompt',
   'Bande dessinee',
   'Dessin',
   'Modernes',
@@ -9,6 +10,13 @@ export const categories: StyleCategory[] = [
 ];
 
 export const artStyles: ArtStyle[] = [
+  {
+    id: 'prompt-only',
+    name: 'Prompt only',
+    category: 'Prompt',
+    accent: '#ffffff',
+    prompt: 'Utilise uniquement le prompt avance utilisateur pour modifier la photo source.'
+  },
   {
     id: 'ligne-claire',
     name: 'Ligne claire',

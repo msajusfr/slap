@@ -147,6 +147,20 @@ function buildGenerationPrompt(input: GenerateImageInput) {
   const fidelity = input.settings.intensity >= 78 ? 'forte' : input.settings.intensity >= 48 ? 'equilibree' : 'subtile';
   const customPrompt = input.settings.customPrompt.trim();
 
+  if (input.style.id === 'prompt-only') {
+    if (!customPrompt) {
+      throw new Error('Ajoutez un prompt avance pour utiliser Prompt only.');
+    }
+
+    return [
+      'Modifie cette image source en suivant uniquement la demande utilisateur.',
+      'Preserve les sujets et la composition qui ne sont pas explicitement modifies.',
+      `Demande utilisateur: ${customPrompt}`,
+      `Intensite de modification: ${fidelity} (${input.settings.intensity}%).`,
+      'Rendu final premium, propre, sans texte ajoute, sans watermark, pret au partage mobile.'
+    ].join('\n');
+  }
+
   return [
     'Transforme cette photo source en une nouvelle image stylisee.',
     'Conserve la composition principale, les sujets importants et une ressemblance naturelle.',

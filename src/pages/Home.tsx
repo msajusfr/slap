@@ -66,8 +66,9 @@ export function Home() {
     setProgressLabel('Demarrage');
 
     try {
+      const inputImageUrl = sourceUrl;
       const response = await generateImage({
-        imageDataUrl: sourceUrl,
+        imageDataUrl: inputImageUrl,
         style: selectedStyle,
         settings,
         signal: controller.signal,
@@ -77,12 +78,13 @@ export function Home() {
         }
       });
 
-      setResultUrl(response.imageDataUrl);
-      setCompareValue(58);
+      setSourceUrl(response.imageDataUrl);
+      setResultUrl('');
+      setCompareValue(100);
 
       const creation: Creation = {
         id: crypto.randomUUID(),
-        sourceUrl,
+        sourceUrl: inputImageUrl,
         resultUrl: response.imageDataUrl,
         styleId: selectedStyle.id,
         styleName: selectedStyle.name,
@@ -101,10 +103,10 @@ export function Home() {
   }
 
   function selectCreation(creation: Creation) {
-    setSourceUrl(creation.sourceUrl);
-    setResultUrl(creation.resultUrl);
+    setSourceUrl(creation.resultUrl);
+    setResultUrl('');
     setSelectedStyleId(creation.styleId);
-    setCompareValue(58);
+    setCompareValue(100);
   }
 
   function toggleFavorite(id: string) {
@@ -116,24 +118,28 @@ export function Home() {
   }
 
   async function handleShare() {
-    if (!resultUrl) {
+    const exportImageUrl = resultUrl || sourceUrl;
+
+    if (!exportImageUrl) {
       return;
     }
 
     try {
-      await shareImage(resultUrl, `slap-${selectedStyle.id}.jpg`);
+      await shareImage(exportImageUrl, `slap-${selectedStyle.id}.jpg`);
     } catch (shareError) {
       setToast(shareError instanceof Error ? shareError.message : 'Partage indisponible');
     }
   }
 
   async function handleCopy() {
-    if (!resultUrl) {
+    const exportImageUrl = resultUrl || sourceUrl;
+
+    if (!exportImageUrl) {
       return;
     }
 
     try {
-      await copyImageToClipboard(resultUrl);
+      await copyImageToClipboard(exportImageUrl);
       setToast('Image copiee');
     } catch (copyError) {
       setToast(copyError instanceof Error ? copyError.message : 'Copie indisponible');
@@ -193,8 +199,13 @@ export function Home() {
               onSettingsChange={setSettings}
             />
             <ExportActions
-              hasResult={Boolean(resultUrl)}
-              onDownload={() => resultUrl && downloadDataUrl(resultUrl, `slap-${selectedStyle.id}.jpg`)}
+              hasResult={Boolean(resultUrl || sourceUrl)}
+              onDownload={() => {
+                const exportImageUrl = resultUrl || sourceUrl;
+                if (exportImageUrl) {
+                  downloadDataUrl(exportImageUrl, `slap-${selectedStyle.id}.jpg`);
+                }
+              }}
               onShare={handleShare}
               onCopy={handleCopy}
             />

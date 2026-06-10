@@ -1,4 +1,4 @@
-export type StyleCategory = 'Bande dessinee' | 'Dessin' | 'Modernes' | 'Photo premium' | 'Fun';
+export type StyleCategory = 'Prompt' | 'Bande dessinee' | 'Dessin' | 'Modernes' | 'Photo premium' | 'Fun';
 
 export type GenerationMode = 'fast' | 'quality';
 
