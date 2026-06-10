@@ -102,10 +102,10 @@ export function Home() {
   }
 
   function resetPromptForSourceChange() {
-    setStoredSettings((currentSettings) => ({
-      ...normalizeSettings(currentSettings),
+    setStoredSettings({
+      ...settings,
       customPrompt: ''
-    }));
+    });
   }
 
   async function runGeneration(variationPrompt?: string) {
