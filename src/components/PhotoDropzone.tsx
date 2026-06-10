@@ -1,5 +1,5 @@
 import { Camera, ImagePlus, LocateFixed, Minus, Plus, Upload } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { CropState } from '../types';
 
 interface PhotoDropzoneProps {
@@ -31,10 +31,24 @@ export function PhotoDropzone({
 }: PhotoDropzoneProps) {
   const importInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const imageLayerRef = useRef<HTMLDivElement>(null);
+  const cropRef = useRef(crop);
+  const frameRef = useRef<number | null>(null);
   const pointersRef = useRef<PointerSnapshot[]>([]);
   const gestureRef = useRef<{ crop: CropState; distance: number } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const hasImage = Boolean(imageUrl);
+
+  useEffect(() => {
+    cropRef.current = crop;
+    applyCrop(crop);
+  }, [crop, imageUrl]);
+
+  useEffect(() => () => {
+    if (frameRef.current !== null) {
+      window.cancelAnimationFrame(frameRef.current);
+    }
+  }, []);
 
   function readFiles(files: FileList | null) {
     const file = files?.[0];
@@ -44,8 +58,8 @@ export function PhotoDropzone({
   }
 
   function updateZoom(nextZoom: number) {
-    onCropChange({
-      ...crop,
+    commitCrop({
+      ...cropRef.current,
       zoom: clamp(nextZoom, 1, 4)
     });
   }
@@ -55,6 +69,7 @@ export function PhotoDropzone({
       return;
     }
 
+    cropRef.current = crop;
     event.currentTarget.setPointerCapture(event.pointerId);
     pointersRef.current = [
       ...pointersRef.current.filter((pointer) => pointer.id !== event.pointerId),
@@ -63,7 +78,7 @@ export function PhotoDropzone({
 
     if (pointersRef.current.length === 2) {
       gestureRef.current = {
-        crop,
+        crop: cropRef.current,
         distance: getDistance(pointersRef.current[0], pointersRef.current[1])
       };
     }
@@ -82,24 +97,59 @@ export function PhotoDropzone({
     if (pointersRef.current.length >= 2 && gestureRef.current) {
       const distance = getDistance(pointersRef.current[0], pointersRef.current[1]);
       const zoom = clamp(gestureRef.current.crop.zoom * (distance / gestureRef.current.distance), 1, 4);
-      onCropChange({ ...crop, zoom });
+      updateDraftCrop({ ...cropRef.current, zoom });
       return;
     }
 
     const deltaX = event.clientX - previousPointer.x;
     const deltaY = event.clientY - previousPointer.y;
-    const sensitivity = 0.85 / crop.zoom / 320;
+    const currentCrop = cropRef.current;
+    const sensitivity = 0.85 / currentCrop.zoom / 320;
 
-    onCropChange({
-      ...crop,
-      centerX: clamp(crop.centerX - deltaX * sensitivity, 0, 1),
-      centerY: clamp(crop.centerY - deltaY * sensitivity, 0, 1)
+    updateDraftCrop({
+      ...currentCrop,
+      centerX: clamp(currentCrop.centerX - deltaX * sensitivity, 0, 1),
+      centerY: clamp(currentCrop.centerY - deltaY * sensitivity, 0, 1)
     });
   }
 
   function handlePointerEnd(event: React.PointerEvent<HTMLDivElement>) {
     pointersRef.current = pointersRef.current.filter((pointer) => pointer.id !== event.pointerId);
     gestureRef.current = null;
+
+    if (pointersRef.current.length === 0) {
+      commitCrop(cropRef.current);
+    }
+  }
+
+  function updateDraftCrop(nextCrop: CropState) {
+    cropRef.current = nextCrop;
+
+    if (frameRef.current !== null) {
+      return;
+    }
+
+    frameRef.current = window.requestAnimationFrame(() => {
+      frameRef.current = null;
+      applyCrop(cropRef.current);
+    });
+  }
+
+  function commitCrop(nextCrop: CropState) {
+    cropRef.current = nextCrop;
+    applyCrop(nextCrop);
+    onCropChange(nextCrop);
+  }
+
+  function applyCrop(nextCrop: CropState) {
+    const layer = imageLayerRef.current;
+
+    if (!layer) {
+      return;
+    }
+
+    layer.style.backgroundPosition = `${nextCrop.centerX * 100}% ${nextCrop.centerY * 100}%`;
+    layer.style.backgroundSize = `${nextCrop.zoom * 100}%`;
   }
 
   return (
@@ -128,11 +178,10 @@ export function PhotoDropzone({
             onPointerCancel={handlePointerEnd}
           >
             <div
-              className="absolute inset-0 bg-cover bg-center transition-[background-size,background-position] duration-75"
+              ref={imageLayerRef}
+              className="absolute inset-0 bg-cover bg-center will-change-[background-position,background-size]"
               style={{
-                backgroundImage: `url(${imageUrl})`,
-                backgroundPosition: `${crop.centerX * 100}% ${crop.centerY * 100}%`,
-                backgroundSize: `${crop.zoom * 100}%`
+                backgroundImage: `url(${imageUrl})`
               }}
             />
             <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.14)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.14)_1px,transparent_1px)] bg-[size:33.333%_33.333%]" />
