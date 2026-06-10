@@ -105,6 +105,11 @@ export function ControlsPanel({
 
       <div className="grid grid-cols-2 gap-2">
         <PreserveToggle
+          label="Sujet intact"
+          checked={settings.preserve.subject}
+          onChange={(checked) => onSettingsChange({ ...settings, preserve: { ...settings.preserve, subject: checked } })}
+        />
+        <PreserveToggle
           label="Conserver le visage"
           checked={settings.preserve.face}
           onChange={(checked) => onSettingsChange({ ...settings, preserve: { ...settings.preserve, face: checked } })}

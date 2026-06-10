@@ -28,6 +28,7 @@ const defaultSettings: GenerationSettings = {
   mode: 'fast',
   customPrompt: '',
   preserve: {
+    subject: false,
     face: true,
     clothing: true,
     pose: true,

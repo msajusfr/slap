@@ -50,6 +50,7 @@ async function generateWithOpenAi(input: GenerateImageInput): Promise<GenerateIm
   formData.append('image', imageBlob, 'source.jpg');
   formData.append('prompt', prompt);
   formData.append('mode', input.settings.mode);
+  formData.append('surfaceOnly', String(input.settings.preserve.subject));
 
   input.onProgress?.(0.35, 'Envoi securise');
   const response = await fetch(OPENAI_IMAGE_ENDPOINT, {
@@ -88,6 +89,7 @@ async function generateWithFal(input: GenerateImageInput): Promise<GenerateImage
   formData.append('mode', input.settings.mode);
   formData.append('intensity', String(input.settings.intensity));
   formData.append('styleStrength', String(input.settings.styleStrength));
+  formData.append('surfaceOnly', String(input.settings.preserve.subject));
 
   input.onProgress?.(0.35, 'Envoi securise');
   const response = await fetch(FAL_IMAGE_ENDPOINT, {
@@ -164,6 +166,7 @@ function buildGenerationPrompt(input: GenerateImageInput) {
       `Fidelite au visage: ${input.settings.faceFidelity}%.`,
       `Force du style: ${input.settings.styleStrength}%.`,
       `Creativite: ${input.settings.creativity}%.`,
+      buildSurfaceOnlyPrompt(input.settings),
       buildPreservationPrompt(input.settings),
       input.variationPrompt ? `Variation rapide demandee: ${input.variationPrompt}` : '',
       'Rendu final premium, propre, sans texte ajoute, sans watermark, pret au partage mobile.'
@@ -179,6 +182,7 @@ function buildGenerationPrompt(input: GenerateImageInput) {
     `Fidelite au visage: ${input.settings.faceFidelity}%.`,
     `Force du style: ${input.settings.styleStrength}%.`,
     `Creativite: ${input.settings.creativity}%.`,
+    buildSurfaceOnlyPrompt(input.settings),
     buildPreservationPrompt(input.settings),
     customPrompt ? `Direction supplementaire utilisateur: ${customPrompt}` : '',
     input.variationPrompt ? `Variation rapide demandee: ${input.variationPrompt}` : '',
@@ -190,6 +194,7 @@ function buildGenerationPrompt(input: GenerateImageInput) {
 
 function buildPreservationPrompt(settings: GenerateImageInput['settings']) {
   const rules = [
+    settings.preserve.subject ? 'ne pas modifier le personnage, sa morphologie, son age, son expression, ses traits distinctifs ni son identite' : '',
     settings.preserve.face ? 'conserver le visage et l identite du sujet' : '',
     settings.preserve.clothing ? 'conserver les vetements principaux' : '',
     settings.preserve.pose ? 'conserver la pose et le cadrage corporel' : '',
@@ -197,6 +202,18 @@ function buildPreservationPrompt(settings: GenerateImageInput['settings']) {
   ].filter(Boolean);
 
   return rules.length > 0 ? `Contraintes de preservation: ${rules.join(', ')}.` : '';
+}
+
+function buildSurfaceOnlyPrompt(settings: GenerateImageInput['settings']) {
+  if (!settings.preserve.subject) {
+    return '';
+  }
+
+  return [
+    'Mode sujet intact: ne modifie pas le personnage lui-meme.',
+    'Applique le style uniquement comme un traitement de surface: trait, contours, texture, lumiere, couleur, contraste, ambiance et rendu graphique.',
+    'Ne change ni les proportions, ni la forme du visage, ni les yeux, ni le nez, ni la bouche, ni la coupe de cheveux, ni les vetements, ni la pose.'
+  ].join(' ');
 }
 
 async function dataUrlToBlob(dataUrl: string): Promise<Blob> {

@@ -16,6 +16,7 @@ export async function POST(request: Request) {
     const mode = incoming.get('mode') === 'quality' ? 'quality' : 'fast';
     const intensity = clampIntensity(Number(incoming.get('intensity') ?? 72));
     const styleStrength = clampIntensity(Number(incoming.get('styleStrength') ?? intensity));
+    const surfaceOnly = incoming.get('surfaceOnly') === 'true';
 
     if (!(image instanceof Blob)) {
       return jsonError('Image manquante dans la requete.', 400);
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         image_url: imageUrl,
         prompt,
-        strength: Math.max(0.25, Math.min(0.95, styleStrength / 100)),
+        strength: getFalStrength(styleStrength, surfaceOnly),
         num_inference_steps: mode === 'quality' ? 40 : 28,
         guidance_scale: mode === 'quality' ? 3.8 : 3.2,
         num_images: 1,
@@ -105,6 +106,14 @@ function clampIntensity(value: number) {
   }
 
   return Math.max(20, Math.min(100, value));
+}
+
+function getFalStrength(styleStrength: number, surfaceOnly: boolean) {
+  if (surfaceOnly) {
+    return Math.max(0.18, Math.min(0.42, styleStrength / 180));
+  }
+
+  return Math.max(0.25, Math.min(0.95, styleStrength / 100));
 }
 
 function getFalImageUrl(payload: FalImageResponse | FalErrorResponse | null) {

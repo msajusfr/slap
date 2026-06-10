@@ -25,6 +25,7 @@ export interface ArtStyle {
 }
 
 export interface PreservationSettings {
+  subject: boolean;
   face: boolean;
   clothing: boolean;
   pose: boolean;
