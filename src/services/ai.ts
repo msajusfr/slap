@@ -1,4 +1,4 @@
-import type { GenerateImageInput, GenerateImageResult } from '../types';
+import type { ArtStyle, GenerateImageInput, GenerateImageResult } from '../types';
 
 const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 const OPENAI_IMAGE_ENDPOINT = '/api/openai-image';
@@ -176,18 +176,19 @@ function buildGenerationPrompt(input: GenerateImageInput) {
 
   return [
     'Transforme cette photo source en une nouvelle image stylisee.',
-    'Conserve la composition principale, les sujets importants et une ressemblance naturelle.',
-    `Style artistique: ${input.style.name}.`,
-    `Instruction de style: ${input.style.prompt}`,
+    `STYLE PRIORITAIRE A CONSERVER: ${input.style.name}.`,
+    `Instruction de style prioritaire: ${input.style.prompt}`,
+    'Toutes les autres instructions sont secondaires: elles doivent soutenir ce style, jamais le remplacer par un autre rendu.',
+    'Conserve la composition principale, les sujets importants et une ressemblance naturelle sans neutraliser le style choisi.',
     `Intensite stylistique: ${fidelity} (${input.settings.intensity}%).`,
     `Fidelite au visage: ${input.settings.faceFidelity}%.`,
     `Force du style: ${input.settings.styleStrength}%.`,
     `Creativite: ${input.settings.creativity}%.`,
-    buildSurfaceOnlyPrompt(input.settings),
+    buildSurfaceOnlyPrompt(input.settings, input.style),
     buildFaceFidelityPrompt(input.settings),
     buildPreservationPrompt(input.settings),
-    customPrompt ? `Direction supplementaire utilisateur: ${customPrompt}` : '',
-    input.variationPrompt ? `Variation rapide demandee: ${input.variationPrompt}` : '',
+    customPrompt ? buildSecondaryDirectionPrompt('Direction supplementaire utilisateur', customPrompt, input.style) : '',
+    input.variationPrompt ? buildSecondaryDirectionPrompt('Variation rapide demandee', input.variationPrompt, input.style) : '',
     'Rendu final premium, propre, sans texte ajoute, sans watermark, pret au partage mobile.'
   ]
     .filter(Boolean)
@@ -226,18 +227,26 @@ function buildFaceFidelityPrompt(settings: GenerateImageInput['settings']) {
   return 'Fidelite visage souple: conserve une ressemblance generale du visage sans bloquer toutes les interpretations artistiques.';
 }
 
-function buildSurfaceOnlyPrompt(settings: GenerateImageInput['settings']) {
+function buildSecondaryDirectionPrompt(label: string, prompt: string, style: ArtStyle) {
+  return `${label}: ${prompt} Applique cette demande uniquement si elle reste compatible avec le style ${style.name}.`;
+}
+
+function buildSurfaceOnlyPrompt(settings: GenerateImageInput['settings'], style?: ArtStyle) {
   if (!settings.preserve.subject) {
     return '';
   }
+
+  const styleLabel = style ? `le style ${style.name}` : 'le style choisi';
+  const stylePrompt = style ? `Directive du style a garder visible: ${style.prompt}` : '';
 
   return [
     'MODE SUJET INTACT / IDENTITY-LOCKED STYLE TRANSFER.',
     'Le personnage doit rester exactement le meme: meme geometrie du visage, memes yeux, nez, bouche, expression, age, morphologie, cheveux, vetements et pose.',
     'Ne remplace pas la personne, ne l embellis pas, ne la maquille pas, ne change pas ses traits et ne redesign pas son corps.',
-    'Applique le style choisi de facon visible mais uniquement comme une couche de rendu: trait, contours, fusain, encre, texture, lumiere, couleur, contraste, grain et ambiance.',
-    'Si le style est fusain, le rendu doit etre clairement un dessin noir et blanc au fusain avec noirs profonds, estompes, grain papier et contours faits main.',
-    'Le resultat doit etre reconnu immediatement comme la meme photo et le meme personnage, seulement rendu dans le style choisi.'
+    `Applique ${styleLabel} de facon visible comme couche de rendu: traits, contours, texture, lumiere, couleur, contraste, grain et ambiance propres a ce style.`,
+    stylePrompt,
+    'N introduis pas un autre medium ou une autre direction artistique sauf si le style prioritaire le demande explicitement.',
+    'Le resultat doit etre reconnu immediatement comme la meme photo et le meme personnage, seulement rendu dans le style prioritaire.'
   ].join(' ');
 }
 

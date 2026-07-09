@@ -102,9 +102,11 @@ function getOpenAiErrorMessage(status: number, payload: OpenAiImageResponse | nu
 function buildOpenAiIdentityLockedPrompt(prompt: string) {
   return [
     'IDENTITY-LOCKED STYLE TRANSFER.',
+    'The requested style inside the user prompt is the priority style target and must remain visible.',
     'The person, face geometry, expression, age, body, hair, clothes, pose, and visible identity must remain the same as the input image.',
     'Do not beautify, recast, replace, age, de-age, reshape, repaint, or redesign the character.',
-    'Only change the visual rendering layer: line work, charcoal/ink/paint texture, color grading, lighting mood, contrast, grain, and atmosphere.',
+    'Only change the visual rendering layer according to the requested style: line quality, texture, color, lighting mood, contrast, grain, and atmosphere.',
+    'Do not introduce another medium, genre, or art direction unless the requested style explicitly asks for it.',
     'The final image must still be immediately recognizable as the exact same person and scene.',
     prompt
   ].join('\n');

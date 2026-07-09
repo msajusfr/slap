@@ -226,6 +226,10 @@ export function Home() {
   function selectStyle(styleId: string) {
     setSelectedStyleId(styleId);
     setRecentStyleIds((currentStyleIds) => addRecentStyle(currentStyleIds, styleId));
+
+    if (styleId !== selectedStyle.id) {
+      setStoredSettings(resetStyleTunedSettings(settings));
+    }
   }
 
   async function handleShare() {
@@ -379,5 +383,13 @@ function normalizeSettings(settings: Partial<GenerationSettings>): GenerationSet
       ...defaultSettings.preserve,
       ...settings.preserve
     }
+  };
+}
+
+function resetStyleTunedSettings(settings: GenerationSettings): GenerationSettings {
+  return {
+    ...defaultSettings,
+    provider: settings.provider,
+    mode: settings.mode
   };
 }

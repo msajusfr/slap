@@ -128,8 +128,9 @@ function buildFalKontextPrompt(prompt: string) {
   return [
     'Edit the provided image directly. Keep the same exact person, face, expression, age, hair, clothes, pose, body proportions, camera framing, and background layout.',
     'Do not beautify, add makeup, replace the person, change facial geometry, redesign clothing, or invent a new character.',
-    'Apply the requested style as a visible surface rendering only. The requested medium must be obvious: strong line work, paper/charcoal/paint texture, contrast, grain, lighting mood, and atmosphere.',
-    'For charcoal or fusain styles, make the result clearly black-and-white charcoal drawing with deep blacks, smudged shading, visible paper grain, and hand-drawn contours while preserving identity.',
+    'Apply the requested style from the prompt as the priority visual target. Keep that style obvious while preserving identity.',
+    'Only change the rendering layer according to the requested style: line quality, texture, color, contrast, grain, lighting mood, and atmosphere.',
+    'Do not introduce another medium, genre, or art direction unless the requested style explicitly asks for it.',
     prompt
   ].join('\n');
 }
